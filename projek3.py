@@ -40,6 +40,9 @@ pilihan = st.sidebar.selectbox(
     ["beranda", "booking tempat parkir", "aktivasi tempat parkir", "Pembayaran", "dashboard penghasilan"]
 )
 
+if "bookings" not in st.session_state:
+    st.session_state.bookings = []
+
 if pilihan == "beranda":
     st.title("Selamat Datang di Sistem Parkir Kami")
     st.write("Aplikasi Ini memudahkan kita untuk parkir kendaraan dengan mudah dan efisien.")
@@ -65,9 +68,6 @@ if pilihan == "beranda":
 elif pilihan == "booking tempat parkir":
     st.title("Booking Tempat Parkir")
 
-    if "bookings" not in st.session_state:
-        st.session_state.bookings = []
-
     with st.form("form_booking"):
         nama = st.text_input("Nama Lengkap")
         jenis = st.selectbox("Jenis Kendaraan", ["Mobil", "Motor", "Sepeda"])
@@ -90,42 +90,57 @@ elif pilihan == "booking tempat parkir":
                     "Status": "Booked"
                 })
                 st.success("Booking berhasil!")
+                st.rerun()
 
 elif pilihan == "aktivasi tempat parkir":
     st.title("Aktivasi Tempat Parkir")
 
-    with st.form("form_aktivasi"):
-        tempat_parkir = st.selectbox(
-            "Pilih Slot",
-            [a["Tempat Parkir"] for a in st.session_state.bookings if a["Status"] == "Booked"]
-        )
-        durasi = st.number_input("Durasi Parkir (jam)", 1, 168)
+    booked_slot = [
+        a["Tempat Parkir"]
+        for a in st.session_state.bookings
+        if a["Status"] == "Booked"
+    ]
 
-        if st.form_submit_button("Aktivasi"):
-            for booking in st.session_state.bookings:
-                if booking["Tempat Parkir"] == tempat_parkir:
-                    booking["Durasi"] = durasi
-                    booking["Tarif per Jam"] = get_tarif_per_jam(booking["Jenis"])
-                    booking["Biaya Total"] = hitung_biaya(durasi, booking["Jenis"])
-                    booking["Status"] = "Aktivated"
-                    st.success("Tempat parkir berhasil diaktivasi!")
-                    break
+    if not booked_slot:
+        st.info("Belum ada slot yang dibooking")
+    else:
+        with st.form("form_aktivasi"):
+            tempat_parkir = st.selectbox("Pilih Slot", booked_slot)
+            durasi = st.number_input("Durasi Parkir (jam)", 1, 168)
+
+            if st.form_submit_button("Aktivasi"):
+                for booking in st.session_state.bookings:
+                    if booking["Tempat Parkir"] == tempat_parkir:
+                        booking["Durasi"] = durasi
+                        booking["Tarif per Jam"] = get_harga_per_jam(booking["Jenis"])
+                        booking["Biaya Total"] = hitung_biaya(durasi, booking["Jenis"])
+                        booking["Status"] = "Aktivated"
+                        st.success("Tempat parkir berhasil diaktivasi!")
+                        st.rerun()
+                        break
 
 elif pilihan == "Pembayaran":
     st.title("Pembayaran Parkir")
 
-    with st.form("form_pembayaran"):
-        tempat_parkir = st.selectbox(
-            "Pilih Slot",
-            [a["Tempat Parkir"] for a in st.session_state.bookings if a["Status"] == "Aktivated"]
-        )
+    activated_slot = [
+        a["Tempat Parkir"]
+        for a in st.session_state.bookings
+        if a["Status"] == "Aktivated"
+    ]
 
-        if st.form_submit_button("Bayar"):
-            for booking in st.session_state.bookings:
-                if booking["Tempat Parkir"] == tempat_parkir:
-                    booking["Status"] = "Paid"
-                    st.success(f"Pembayaran Rp {booking['Biaya Total']} berhasil!")
-                    break
+    if not activated_slot:
+        st.info("Belum ada parkir yang diaktivasi")
+    else:
+        with st.form("form_pembayaran"):
+            tempat_parkir = st.selectbox("Pilih Slot", activated_slot)
+
+            if st.form_submit_button("Bayar"):
+                for booking in st.session_state.bookings:
+                    if booking["Tempat Parkir"] == tempat_parkir:
+                        booking["Status"] = "Paid"
+                        st.success(f"Pembayaran Rp {booking['Biaya Total']} berhasil!")
+                        st.rerun()
+                        break
 
 elif pilihan == "dashboard penghasilan":
     st.title("Dashboard Admin")
@@ -138,6 +153,7 @@ elif pilihan == "dashboard penghasilan":
 
     if st.button("Login"):
         st.session_state.login = (user == "admin" and password == "admin123")
+        st.rerun()
 
     if st.session_state.login:
         paid = [a for a in st.session_state.bookings if a["Status"] == "Paid"]
@@ -147,3 +163,4 @@ elif pilihan == "dashboard penghasilan":
         st.table(paid)
     else:
         st.warning("Login sebagai admin")
+
